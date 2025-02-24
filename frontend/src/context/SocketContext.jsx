@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import { useAuthContext } from "./AuthContext";
+import useConversation from "../zustand/useConversation"; // ✅ Import Zustand store
 import io from "socket.io-client";
 
 const SocketContext = createContext();
@@ -12,6 +13,7 @@ export const SocketContextProvider = ({ children }) => {
 	const [socket, setSocket] = useState(null);
 	const [onlineUsers, setOnlineUsers] = useState([]);
 	const { authUser } = useAuthContext();
+	const { selectedConversation, addMessage } = useConversation(); // ✅ Use Zustand store
 
 	useEffect(() => {
 		if (authUser) {
@@ -23,9 +25,19 @@ export const SocketContextProvider = ({ children }) => {
 
 			setSocket(socket);
 
-			// socket.on() is used to listen to the events. can be used both on client and server side
+			// ✅ Handle online users
 			socket.on("getOnlineUsers", (users) => {
 				setOnlineUsers(users);
+			});
+
+			// ✅ Listen for new messages (only update correct chat)
+			socket.on("newMessage", (newMessage) => {
+				if (
+					selectedConversation &&
+					(newMessage.senderId === selectedConversation._id || newMessage.receiverId === selectedConversation._id)
+				) {
+					addMessage(newMessage);
+				}
 			});
 
 			return () => socket.close();
@@ -35,7 +47,7 @@ export const SocketContextProvider = ({ children }) => {
 				setSocket(null);
 			}
 		}
-	}, [authUser]);
+	}, [authUser, selectedConversation, addMessage]); // ✅ Add dependencies
 
 	return <SocketContext.Provider value={{ socket, onlineUsers }}>{children}</SocketContext.Provider>;
 };
